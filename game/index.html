@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
+<title>Solmar Sunset — an open-world crime game</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0d1626; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #eef1f5; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #hud { position: fixed; inset: 0; pointer-events: none; display: none; }
+  .panel { background: rgba(10, 16, 24, 0.72); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 10px; padding: 10px 14px; }
+  #topleft { position: absolute; top: 14px; left: 14px; }
+  #stars { font-size: 22px; letter-spacing: 3px; color: #c8ccd2; }
+  #cash { font-size: 26px; font-weight: 700; color: #ffd34d; margin-top: 2px; }
+  #health-row { margin-top: 6px; display: flex; align-items: center; gap: 8px; font-size: 13px; }
+  #health-bar { width: 130px; height: 10px; background: rgba(255,255,255,0.18); border-radius: 5px; overflow: hidden; }
+  #health-fill { height: 100%; width: 100%; background: #58c96b; }
+  #mission { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 320px; }
+  #mission-title { font-size: 17px; font-weight: 700; color: #ffd34d; letter-spacing: 0.5px; }
+  #mission-text { font-size: 14px; margin-top: 3px; }
+  #mission-timer { font-size: 14px; font-weight: 700; color: #ff8a70; margin-top: 2px; }
+  #minimap { position: absolute; top: 14px; right: 14px; border: 1px solid rgba(255,255,255,0.25); border-radius: 10px; background: #141a20; }
+  #speed { position: absolute; bottom: 18px; left: 18px; font-size: 26px; font-weight: 700; text-shadow: 0 2px 6px rgba(0,0,0,0.7); }
+  #prompt { position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); font-size: 15px; background: rgba(10,16,24,0.72); padding: 8px 16px; border-radius: 20px; }
+  #toasts { position: absolute; top: 110px; left: 50%; transform: translateX(-50%); font-size: 17px; font-weight: 600; background: rgba(10,16,24,0.8); padding: 8px 18px; border-radius: 20px; opacity: 0; transition: opacity 0.3s; }
+  .overlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(8, 12, 20, 0.55); z-index: 5; }
+  .card { max-width: 640px; margin: 20px; background: rgba(12, 18, 28, 0.92); border: 1px solid rgba(255, 211, 77, 0.35); border-radius: 16px; padding: 34px 40px; text-align: center; }
+  .card h1 { margin: 0; font-size: 52px; letter-spacing: 4px; color: #ffd34d; }
+  .card h2 { margin: 0 0 12px; font-size: 30px; color: #ffd34d; }
+  .card .sub { font-size: 15px; color: #ff9a5c; letter-spacing: 2px; text-transform: uppercase; margin-top: 4px; }
+  .card p { font-size: 16px; line-height: 1.55; color: #d5dae0; }
+  .card .controls { font-size: 14px; line-height: 1.9; color: #aeb6c0; text-align: left; display: inline-block; }
+  .card .go { margin-top: 18px; font-size: 18px; font-weight: 700; color: #ffd34d; }
+  .card .best { margin-top: 10px; font-size: 14px; color: #8b93a3; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Solmar Sunset: drive and walk around Solmar, take courier jobs, and stay out of the Solmar PD's way"></canvas>
+<p id="status" role="status" aria-live="polite"></p>
+
+<div id="hud">
+  <div id="topleft" class="panel">
+    <div id="stars">☆☆☆☆☆</div>
+    <div id="cash">$0</div>
+    <div id="health-row"><span>Health</span><div id="health-bar"><div id="health-fill"></div></div><span id="health-text">100</span></div>
+  </div>
+  <div id="mission" class="panel">
+    <div id="mission-title">First Run</div>
+    <div id="mission-text">Go to the depot to start</div>
+    <div id="mission-timer"></div>
+  </div>
+  <canvas id="minimap" width="180" height="180"></canvas>
+  <div id="speed"></div>
+  <div id="prompt"></div>
+  <div id="toasts"></div>
+</div>
+
+<div id="title-screen" class="overlay">
+  <div class="card">
+    <h1>SOLMAR SUNSET</h1>
+    <div class="sub">An open-world crime game</div>
+    <p>Dana Cole drives courier jobs for Sunset Courier Co. in Solmar, a sun-soaked city on the coast. Take the jobs, borrow what you need, and stay out of the Solmar PD's way — or outrun them.</p>
+    <div class="controls">
+      W A S D — walk / drive &nbsp;·&nbsp; Shift — run<br>
+      Mouse drag — look around &nbsp;·&nbsp; E — get in / out of a car<br>
+      Space — handbrake &nbsp;·&nbsp; P — pause &nbsp;·&nbsp; M — mute
+    </div>
+    <div class="go">Press Enter to start</div>
+    <div class="best" id="best"></div>
+  </div>
+</div>
+
+<div id="pause-screen" class="overlay">
+  <div class="card">
+    <h2>Paused</h2>
+    <p>Solmar waits for no one — except right now.</p>
+    <div class="go">Press P to keep playing</div>
+  </div>
+</div>
+
+<div id="end-screen" class="overlay">
+  <div class="card">
+    <h2 id="end-title">Busted!</h2>
+    <p id="end-text"></p>
+    <div class="go">Press Enter to get back out there</div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.min.js" } }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
